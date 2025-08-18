@@ -1,18 +1,25 @@
-# TypeB TypeScript SDK
+# The mConnect TradingAPI TypeB TypeScript/JavaScript SDK
 
-A comprehensive TypeScript SDK for interacting with the TypeB trading platform API.
+The official TypeScript/JavaScript client for communicating with the mConnect TypeB Trading API.
 
-##  Table of Contents
+MConnect TypeA is a comprehensive trading API that provides capabilities required to build a complete investment and trading platform. Execute orders in real time, manage user portfolio, stream live market data (WebSockets), and more.
 
-- [Features](#features)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Authentication](#authentication)
-- [Usage Examples](#usage-examples)
-- [API Reference](#api-reference)
-- [Contributing](#contributing)
-- [License](#license)
+## Documentation
 
+- [mConnect API documentation](https://tradingapi.mstock.com/)
+- [Examples](./examples/)
+
+## Requirements
+
+- Node.js v18.0.0+
+
+## Installation
+
+Install via [npm](https://www.npmjs.com/package/@mstock/mconnectb)
+
+```bash
+npm install @mstock/mconnectb
+```
 ##  Features
 
 - **Comprehensive API Coverage** - Full support for all TypeB trading API endpoints
@@ -25,18 +32,12 @@ A comprehensive TypeScript SDK for interacting with the TypeB trading platform A
 - **Options Trading** - Complete options chain support
 - **Error Handling** - Comprehensive error handling and retry mechanisms
 
-##  Installation
-
-```bash
-npm install mconnectb
-```
-
-##  Quick Start
+##  Getting started with API
 
 ### Basic Setup
 
 ```typescript
-import { MConnect } from 'mconnectb';
+import { MConnect } from '@mstock/mconnectb';
 
 // Initialize the client
 const client = new MConnect('https://api.mstock.trade', 'your-api-key');
@@ -231,14 +232,22 @@ npm test
 npm run build
 ```
 
-##  Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+## License
 
-##  License
+MIT License - see [LICENSE](LICENSE) file for details.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+m.Stock By Mirae Asset Capital Markets (India) Pvt. Ltd. (c) 2025. Licensed under the MIT License.
 
-##  Support
 
-For support, please open an issue on GitHub or contact our support team.
+## Support
+For issues, please open an issue on GitHub.
+
+## Contributing
+
+We welcome contributions! Please follow these steps:
+
+1. Fork the repository
+2. Create a new branch (feature-xyz)
+3. Commit your changes
+4. Push the branch and create a pull request
