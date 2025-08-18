@@ -7,7 +7,7 @@
 
 The official TypeScript/JavaScript client for communicating with the mConnect TypeB Trading API.
 
-MConnect TypeA is a comprehensive trading API that provides capabilities required to build a complete investment and trading platform. Execute orders in real time, manage user portfolio, stream live market data (WebSockets), and more.
+mConnect TypeA is a comprehensive trading API that provides capabilities required to build a complete investment and trading platform. Execute orders in real time, manage user portfolio, stream live market data (WebSockets), and more.
 
 ## Documentation
 
