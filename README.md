@@ -28,7 +28,7 @@ A comprehensive TypeScript SDK for interacting with the TypeB trading platform A
 ##  Installation
 
 ```bash
-npm install typeb-ts-sdk
+npm install mconnectb
 ```
 
 ##  Quick Start
@@ -36,7 +36,7 @@ npm install typeb-ts-sdk
 ### Basic Setup
 
 ```typescript
-import { MConnect } from 'typeb-ts-sdk';
+import { MConnect } from 'mconnectb';
 
 // Initialize the client
 const client = new MConnect('https://api.mstock.trade', 'your-api-key');
@@ -218,15 +218,6 @@ const calculation = await client.calculateBasket({
 | `getOptionChainMaster()` | Get option chain master data |
 | `getOptionChain()` | Get detailed option chain data |
 
-##  Development
-
-### Setup
-
-```bash
-git clone https://github.com/your-org/typeb-ts-sdk.git
-cd typeb-ts-sdk
-npm install
-```
 
 ### Testing
 
