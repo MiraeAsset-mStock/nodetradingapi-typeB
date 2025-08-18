@@ -1,5 +1,10 @@
 # The mConnect TradingAPI TypeB TypeScript/JavaScript SDK
 
+[![npm version](https://badge.fury.io/js/mconnecttypeb.svg)](https://www.npmjs.com/package/@mstock/mconnectb)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
+
+
 The official TypeScript/JavaScript client for communicating with the mConnect TypeB Trading API.
 
 MConnect TypeA is a comprehensive trading API that provides capabilities required to build a complete investment and trading platform. Execute orders in real time, manage user portfolio, stream live market data (WebSockets), and more.
