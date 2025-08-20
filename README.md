@@ -1,17 +1,17 @@
-# The mConnect TradingAPI TypeB TypeScript/JavaScript SDK
+# TradingAPI TypeB TypeScript/JavaScript SDK
 
-[![npm version](https://badge.fury.io/js/mconnecttypeb.svg)](https://www.npmjs.com/package/@mstock/mconnectb)
+[![npm version](https://badge.fury.io/js/@mstock-mirae-asset%2Fnodetradingapi-typeb.svg)](https://www.npmjs.com/package/@mstock-mirae-asset/nodetradingapi-typeb)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 
 
-The official TypeScript/JavaScript client for communicating with the mConnect TypeB Trading API.
+The official TypeScript/JavaScript client for communicating with the TypeB Trading API.
 
-mConnect TypeA is a comprehensive trading API that provides capabilities required to build a complete investment and trading platform. Execute orders in real time, manage user portfolio, stream live market data (WebSockets), and more.
+mStock TypeB is a comprehensive trading API that provides capabilities required to build a complete investment and trading platform. Execute orders in real time, manage user portfolio, stream live market data (WebSockets), and more.
 
 ## Documentation
 
-- [mConnect API documentation](https://tradingapi.mstock.com/)
+- [TradingAPI documentation](https://tradingapi.mstock.com/)
 - [Examples](./examples/)
 
 ## Requirements
@@ -20,10 +20,10 @@ mConnect TypeA is a comprehensive trading API that provides capabilities require
 
 ## Installation
 
-Install via [npm](https://www.npmjs.com/package/@mstock/mconnectb)
+Install via [npm](https://www.npmjs.com/package/@mstock-mirae-asset/nodetradingapi-typeb)
 
 ```bash
-npm install @mstock/mconnectb
+npm install @mstock-mirae-asset/nodetradingapi-typeb
 ```
 ##  Features
 
@@ -42,7 +42,7 @@ npm install @mstock/mconnectb
 ### Basic Setup
 
 ```typescript
-import { MConnect } from '@mstock/mconnectb';
+import { MConnect } from '@mstock-mirae-asset/nodetradingapi-typeb';
 
 // Initialize the client
 const client = new MConnect('https://api.mstock.trade', 'your-api-key');
@@ -242,7 +242,7 @@ npm run build
 
 MIT License - see [LICENSE](LICENSE) file for details.
 
-m.Stock By Mirae Asset Capital Markets (India) Pvt. Ltd. (c) 2025. Licensed under the MIT License.
+mStock By Mirae Asset Capital Markets (India) Pvt. Ltd. (c) 2025. Licensed under the MIT License.
 
 
 ## Support
