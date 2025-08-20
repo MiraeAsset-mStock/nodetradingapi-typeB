@@ -81,8 +81,8 @@ async function initializeClient() {
 async function testLogin() {
 //    const clientcode = await question('Enter client code: ');
 //    const password = await question('Enter password: ');
-    const clientcode = 'Enter Client Code/ Mobile Number';
-    const password = 'Sandy@1999';
+    const clientcode = 'Enter Client Code/ Mobile Number here';
+    const password = 'Enter you password here';
     const totp = '';//await question('Enter TOTP: ');
     const state = '';
 
