@@ -108,7 +108,6 @@ export interface CancelOrderParams {
  */
 export interface OrderDetailsReq {
     order_no: string;
-    segment: string;
 }
 
 /**

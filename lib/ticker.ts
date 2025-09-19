@@ -1,532 +1,418 @@
 import WebSocket from 'ws';
-import { Utils } from './utils';
-import { DEFAULTS } from '../constants/routes';
-import { MTickerConfig } from '../types/config';
-import { FeedData, TypeAUpdate } from '../types';
-import * as fs from 'fs';
-import * as path from 'path';
+import { EventEmitter } from 'events';
 
-/**
- * MTicker WebSocket Client
- * Provides real-time market data and order updates via WebSocket
- */
-export class MTicker {
-    private readonly apiKey: string;
-    private readonly accessToken: string;
-    private readonly baseSocketUrl: string;
-    private readonly maxReconnectionAttempts: number;
-    private readonly reconnectDelay: number;
+interface DepthItem {
+  buy_or_sell: number;
+  quantity: number;
+  price: number;
+  orders: number;
+}
+
+interface TickData {
+  mode: number;
+  subscription_mode: number;
+  exchange_type: number;
+  instrument_token: string;
+  sequence_no: number;
+  ex_timestamp: string;
+  ltp: number;
+  last_traded_qty?: number;
+  avg_traded_price?: number;
+  vol_traded_today?: number;
+  tot_buy_qty?: number;
+  tot_sell_qty?: number;
+  ohlc?: {
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+  };
+  last_traded_timestamp?: string;
+  open_interest?: number;
+  open_interest_percent?: number;
+  depth?: {
+    bid: DepthItem[];
+    ask: DepthItem[];
+  };
+  upper_circuit_lmt?: number;
+  lower_circuit_lmt?: number;
+  '52_wk_high'?: number;
+  '52_wk_low'?: number;
+}
+
+interface SubscriptionPacket {
+  correlationID: string;
+  action: number;
+  params: {
+    mode: number;
+    tokenList: Array<{
+      exchangeType: number;
+      tokens: string[];
+    }>;
+  };
+}
+
+export class MTicker extends EventEmitter {
+  private static readonly EXCHANGE_TYPE = {
+    nsecm: 1,
+    nsefo: 2,
+    bsecm: 3,
+    bsefo: 4,
+    nsecd: 13
+  };
+
+  static readonly MODE_LTP = 1;
+  static readonly MODE_QUOTE = 2;
+  static readonly MODE_SNAP = 3;
+
+  private static readonly MESSAGE_SUBSCRIBE = 1;
+  private static readonly MESSAGE_UNSUBSCRIBE = 0;
+
+  private ws: WebSocket | null = null;
+  private socketUrl: string;
+  private subscribedTokens: { [key: string]: number } = {};
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts: number;
+  private reconnectDelay: number;
+  private pingInterval: NodeJS.Timeout | null = null;
+  private isFirstConnect = true;
+  private defaultMode: number;
+
+  constructor(
+    private apiKey: string,
+    private accessToken: string,
+    private root: string,
+    private debug = false,
+    private reconnect = true,
+    maxReconnectTries = 50,
+    reconnectMaxDelay = 60000,
+    defaultMode = MTicker.MODE_LTP
+  ) {
+    super();
+    this.socketUrl = `${this.root}?ACCESS_TOKEN=${this.accessToken}&API_KEY=${this.apiKey}`;
+    this.maxReconnectAttempts = maxReconnectTries;
+    this.reconnectDelay = reconnectMaxDelay;
+    this.defaultMode = defaultMode;
+  }
+
+  connect(): void {
+    this.ws = new WebSocket(this.socketUrl);
     
-    private socketUrl: string;
-    private ws: WebSocket | null = null;
-    private reconnectionAttempts: number = 0;
-    private subscribedTokens: Set<number> = new Set();
-    private isManualClose: boolean = false;
+    this.ws.on('open', () => this.onOpen());
+    this.ws.on('message', (data: Buffer) => this.onMessage(data));
+    this.ws.on('close', (code: number, reason: Buffer) => this.onClose(code, reason.toString()));
+    this.ws.on('error', (error: Error) => this.onError(error));
+  }
 
-    // Event handlers
-    public onBroadcastReceived: (data: FeedData) => void = () => {};
-    public onOrderTradeReceived: (data: TypeAUpdate) => void = () => {};
-    public onConnect: () => void = () => {};
-    public onClose: () => void = () => {};
-    public onError: (event: Event) => void = () => {};
-    public onReconnecting: (attempt: number, maxAttempts: number) => void = () => {};
+  private onOpen(): void {
+    this.reconnectAttempts = 0;
+    this.startPing();
+    
+    if (!this.isFirstConnect) {
+      this.resubscribe();
+    }
+    this.isFirstConnect = false;
+    
+    this.emit('connect');
+    if (this.debug) console.log('WebSocket connected');
+  }
 
-    constructor(config: MTickerConfig) {
-        this.apiKey = config.api_key;
-        this.accessToken = config.access_token;
-        this.baseSocketUrl = DEFAULTS.wsURL;
-        this.maxReconnectionAttempts = config.maxReconnectionAttempts || 5;
-        this.reconnectDelay = config.reconnectDelay || 5000;
-        
-        this.socketUrl = `${this.baseSocketUrl}?ACCESS_TOKEN=${this.accessToken}&API_KEY=${this.apiKey}`;
+  private onMessage(data: Buffer): void {
+    if (data.length < 2) return;
+
+    try {
+      // Try to parse as text first
+      const textData = data.toString('utf8');
+      if (textData.startsWith('{')) {
+        const jsonData = JSON.parse(textData);
+        this.parseTextMessage(jsonData);
+        return;
+      }
+    } catch {
+      // If not JSON, treat as binary
     }
 
-    /**
-     * Log messages to file
-     */
-    private logToFile(message: string): void {
-        const now = new Date();
-        const timestamp = now.getFullYear() + '-' + 
-            String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-            String(now.getDate()).padStart(2, '0') + ' ' + 
-            String(now.getHours()).padStart(2, '0') + ':' + 
-            String(now.getMinutes()).padStart(2, '0') + ':' + 
-            String(now.getSeconds()).padStart(2, '0') + ',' + 
-            String(now.getMilliseconds()).padStart(3, '0');
-        const logMessage = `${timestamp} ${message}\n`;
-        const logPath = path.join(process.cwd(), 'ticker-debug.log');
-        fs.appendFileSync(logPath, logMessage);
+    // Parse binary data
+    if (data.length > 4) {
+      const parsedData = this.parseBinary(data);
+      const convertedData = this.convertPrices(parsedData);
+      this.emit('ticks', convertedData);
     }
+  }
 
-    /**
-     * Log tick data in Python-like format
-     */
-    private logTickData(tick: FeedData): void {
-        const now = new Date();
-        const timestamp = now.getFullYear() + '-' + 
-            String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-            String(now.getDate()).padStart(2, '0') + ' ' + 
-            String(now.getHours()).padStart(2, '0') + ':' + 
-            String(now.getMinutes()).padStart(2, '0') + ':' + 
-            String(now.getSeconds()).padStart(2, '0') + ',' + 
-            String(now.getMilliseconds()).padStart(3, '0');
+  private onClose(code: number, reason: string): void {
+    this.stopPing();
+    this.emit('close', code, reason);
+    
+    if (this.reconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      setTimeout(() => {
+        if (this.debug) console.log(`Reconnecting... Attempt ${this.reconnectAttempts}`);
+        this.connect();
+      }, this.reconnectDelay);
+    }
+  }
+
+  private onError(error: Error): void {
+    this.emit('error', error);
+    if (this.debug) console.error('WebSocket error:', error);
+  }
+
+  private startPing(): void {
+    this.pingInterval = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.ping();
+      }
+    }, 2500);
+  }
+
+  private stopPing(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+  }
+
+  sendLoginAfterConnect(): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(`LOGIN:${this.accessToken}`);
+    }
+  }
+
+  subscribe(exchangeType: string, instrumentTokens: string[], mode?: number): void {
+    const subscriptionMode = mode ?? this.defaultMode;
+    const packet: SubscriptionPacket = {
+      correlationID: '',
+      action: MTicker.MESSAGE_SUBSCRIBE,
+      params: {
+        mode: subscriptionMode,
+        tokenList: [{
+          exchangeType: MTicker.EXCHANGE_TYPE[exchangeType.toLowerCase() as keyof typeof MTicker.EXCHANGE_TYPE] || 1,
+          tokens: instrumentTokens
+        }]
+      }
+    };
+
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(packet));
+      instrumentTokens.forEach(token => {
+        this.subscribedTokens[token] = subscriptionMode;
+      });
+    }
+  }
+
+  unsubscribe(exchangeType: string, instrumentTokens: string[]): void {
+    const packet: SubscriptionPacket = {
+      correlationID: '',
+      action: MTicker.MESSAGE_UNSUBSCRIBE,
+      params: {
+        mode: this.defaultMode,
+        tokenList: [{
+          exchangeType: MTicker.EXCHANGE_TYPE[exchangeType.toLowerCase() as keyof typeof MTicker.EXCHANGE_TYPE] || 1,
+          tokens: instrumentTokens
+        }]
+      }
+    };
+
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(packet));
+      instrumentTokens.forEach(token => {
+        delete this.subscribedTokens[token];
+      });
+    }
+  }
+
+  private resubscribe(): void {
+    const modes: { [key: number]: string[] } = {};
+    
+    Object.keys(this.subscribedTokens).forEach(token => {
+      const mode = this.subscribedTokens[token];
+      if (!modes[mode]) modes[mode] = [];
+      modes[mode].push(token);
+    });
+
+    Object.keys(modes).forEach(mode => {
+      if (this.debug) console.log(`Resubscribe mode: ${mode} - ${modes[+mode]}`);
+      // Note: This would need the exchange type to be stored with tokens for proper resubscription
+    });
+  }
+
+  private parseTextMessage(data: any): void {
+    if (data.order_status === 'order' && data.orderData) {
+      this.emit('order_update', data.orderData);
+    }
+    
+    if (data.order_status === 'trade' && data.orderData) {
+      this.emit('trade_update', data.orderData);
+    }
+    
+    if (data.type === 'error') {
+      this.emit('error', new Error(data.data));
+    }
+  }
+
+  private convertFromUnixTimestamp(timestamp: number, year = 1980): Date {
+    // Convert from custom epoch (1980) as per Python implementation
+    const origin = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0));
+    if (timestamp !== 0) {
+      return new Date(origin.getTime() + timestamp * 1000);
+    }
+    return origin;
+  }
+
+  private convertPrices(tickData: TickData[]): TickData[] {
+    return tickData.map(tick => {
+      const converted = { ...tick };
+      
+      // Convert price fields
+      ['ltp', 'avg_traded_price'].forEach(field => {
+        if (field in converted) {
+          (converted as any)[field] = (converted as any)[field] / 100;
+        }
+      });
+      
+      // Convert OHLC
+      if (converted.ohlc) {
+        ['open', 'high', 'low', 'close'].forEach(key => {
+          if (key in converted.ohlc!) {
+            (converted.ohlc as any)[key] = (converted.ohlc as any)[key] / 100;
+          }
+        });
+      }
+      
+      // Convert market depth prices
+      if (converted.depth) {
+        converted.depth.bid.forEach(item => {
+          if (item.price > 0) item.price = item.price / 100;
+        });
+        converted.depth.ask.forEach(item => {
+          if (item.price > 0) item.price = item.price / 100;
+        });
+      }
+      
+      // Convert circuit limits and 52-week data
+      ['upper_circuit_lmt', 'lower_circuit_lmt', '52_wk_high', '52_wk_low'].forEach(field => {
+        if (field in converted && (converted as any)[field] > 0) {
+          (converted as any)[field] = (converted as any)[field] / 100;
+        }
+      });
+      
+      return converted;
+    });
+  }
+
+  private parseBinary(buffer: Buffer): TickData[] {
+    try {
+      const data: TickData[] = [];
+      
+      const subscriptionMode = buffer.readUInt8(0);
+      const exchangeType = buffer.readUInt8(1);
+      const instrumentToken = buffer.subarray(2, 27).toString('utf8').replace(/\0/g, ' ').trim();
+      const sequenceNo = this.readUInt64LE(buffer, 27);
+      const exTimestamp = this.convertFromUnixTimestamp(this.readUInt64LE(buffer, 35));
+      const ltp = this.readUInt64LE(buffer, 43);
+
+      const tickData: TickData = {
+        mode: this.defaultMode,
+        subscription_mode: subscriptionMode,
+        exchange_type: exchangeType,
+        instrument_token: instrumentToken,
+        sequence_no: sequenceNo,
+        ex_timestamp: exTimestamp.toISOString(),
+        ltp: ltp
+      };
+
+      // LTP Mode (51 bytes)
+      if (buffer.length === 51) {
+        data.push(tickData);
+      }
+      // Quote Mode (123 bytes) or Snap Mode (379 bytes)
+      else if (buffer.length === 123 || buffer.length === 379) {
+        tickData.mode = buffer.length === 123 ? MTicker.MODE_QUOTE : MTicker.MODE_SNAP;
+        tickData.last_traded_qty = this.readUInt64LE(buffer, 51);
+        tickData.avg_traded_price = this.readUInt64LE(buffer, 59);
+        tickData.vol_traded_today = this.readUInt64LE(buffer, 67);
+        tickData.tot_buy_qty = buffer.readDoubleLE(75);
+        tickData.tot_sell_qty = buffer.readDoubleLE(83);
         
-        const mode = tick.Mode === 'ltp' ? 1 : tick.Mode === 'quote' ? 2 : 3;
-        const tickData = {
-            mode: mode,
-            subscription_mode: mode,
-            exchange_type: 1,
-            instrument_token: tick.InstrumentToken,
-            sequence_no: 0,
-            ex_timestamp: `datetime.datetime(${now.getFullYear()}, ${now.getMonth() + 1}, ${now.getDate()}, ${now.getHours()}, ${now.getMinutes()}, ${now.getSeconds()})`,
-            ltp: Math.round(tick.LastPrice * 100),
-            last_traded_qty: tick.LastQuantity || 0,
-            avg_traded_price: Math.round((tick.AveragePrice || 0) * 100),
-            vol_traded_today: tick.Volume || 0,
-            tot_buy_qty: tick.BuyQuantity || 0,
-            tot_sell_qty: tick.SellQuantity || 0,
-            ohlc: {
-                open: Math.round((tick.Open || 0) * 100),
-                high: Math.round((tick.High || 0) * 100),
-                low: Math.round((tick.Low || 0) * 100),
-                close: Math.round((tick.Close || 0) * 100)
-            }
+        // Read OHLC data - these should be dynamic values from server
+        const openPrice = this.readUInt64LE(buffer, 91);
+        const highPrice = this.readUInt64LE(buffer, 99);
+        const lowPrice = this.readUInt64LE(buffer, 107);
+        const closePrice = this.readUInt64LE(buffer, 115);
+        
+        tickData.ohlc = {
+          open: openPrice,
+          high: highPrice,
+          low: lowPrice,
+          close: closePrice
         };
-        
-        const logMessage = `${timestamp} Ticks: [${JSON.stringify(tickData).replace(/"/g, "'")}]\n`;
-        const logPath = path.join(process.cwd(), 'ticker-debug.log');
-        fs.appendFileSync(logPath, logMessage);
-    }
 
-    /**
-     * Establishes WebSocket connection
-     */
-    public connect(): void {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            console.warn('WebSocket is already connected');
-            return;
-        }
-
-        this.isManualClose = false;
-        this.createWebSocketConnection();
-    }
-
-    /**
-     * Creates WebSocket connection with event handlers
-     */
-    private createWebSocketConnection(): void {
-        try {
-            this.ws = new WebSocket(this.socketUrl);
-            this.ws.binaryType = 'arraybuffer';
-
-            this.ws.onopen = this.handleOpen.bind(this);
-            this.ws.onmessage = this.handleMessage.bind(this) as any;
-            this.ws.onerror = this.handleError.bind(this) as any;
-            this.ws.onclose = this.handleClose.bind(this) as any;
-        } catch (error) {
-            console.error('Failed to create WebSocket connection:', error);
-            this.scheduleReconnection();
-        }
-    }
-
-    /**
-     * Handles WebSocket open event
-     */
-    private handleOpen(): void {
-        console.log('WebSocket connected');
-        this.reconnectionAttempts = 0;
-        this.onConnect();
-    }
-
-    /**
-     * Send login message after connection (call this in onConnect callback)
-     */
-    public sendLoginAfterConnect(): void {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            this.logToFile('Sending login message...');
-            this.ws.send(`LOGIN:${this.accessToken}`);
-            this.resubscribeTokens();
-        }
-    }
-
-    /**
-     * Handles WebSocket message event
-     */
-    private handleMessage(event: MessageEvent): void {
-        if (typeof event.data === 'string') {
-            this.handleTextMessage(event.data);
-        } else if (event.data instanceof ArrayBuffer) {
-            this.handleBinaryMessage(event.data);
-        }
-    }
-
-    /**
-     * Handles text messages (JSON)
-     */
-    private handleTextMessage(data: string): void {
-        try {
-            this.logToFile(`Received text message: ${data}`);
-            const messageDict = JSON.parse(data);
-            if (messageDict.type === "order" || messageDict.type === "trade") {
-                this.onOrderTradeReceived(messageDict.data as TypeAUpdate);
-            }
-        } catch (error) {
-            this.logToFile(`Failed to parse text message: ${error}`);
-        }
-    }
-
-    /**
-     * Handles binary messages (market data)
-     */
-    private handleBinaryMessage(data: ArrayBuffer): void {
-        try {
-            this.logToFile(`Received binary message, size: ${data.byteLength}`);
-            this.parseBinaryMessage(data);
-        } catch (error) {
-            this.logToFile(`Failed to parse binary message: ${error}`);
-        }
-    }
-
-    /**
-     * Handles WebSocket error event
-     */
-    private handleError(event: Event): void {
-        console.error('WebSocket error:', event);
-        this.onError(event);
-        this.scheduleReconnection();
-    }
-
-    /**
-     * Handles WebSocket close event
-     */
-    private handleClose(): void {
-        console.log('WebSocket connection closed');
-        this.onClose();
-        
-        if (!this.isManualClose) {
-            this.scheduleReconnection();
-        }
-    }
-
-    /**
-     * Schedules reconnection attempt
-     */
-    private scheduleReconnection(): void {
-        if (this.reconnectionAttempts < this.maxReconnectionAttempts && !this.isManualClose) {
-            this.reconnectionAttempts++;
-            this.onReconnecting(this.reconnectionAttempts, this.maxReconnectionAttempts);
+        if (buffer.length === 379) {
+          const timestamp = this.convertFromUnixTimestamp(this.readUInt64LE(buffer, 123));
+          tickData.last_traded_timestamp = timestamp.toISOString();
+          tickData.open_interest = this.readUInt64LE(buffer, 131);
+          tickData.open_interest_percent = buffer.readDoubleLE(139);
+          
+          // Parse market depth data (200 bytes from 147 to 347)
+          const depth = { bid: [] as DepthItem[], ask: [] as DepthItem[] };
+          
+          for (let i = 0, p = 147; i < 10 && p < 347; i++, p += 20) {
+            const buySellFlag = buffer.readInt16LE(p);
+            const quantity = this.readUInt64LE(buffer, p + 2);
+            const price = this.readUInt64LE(buffer, p + 10);
+            const orders = buffer.readInt16LE(p + 18);
             
-            setTimeout(() => {
-                if (!this.isManualClose) {
-                    this.createWebSocketConnection();
-                }
-            }, this.reconnectDelay);
-        } else if (this.reconnectionAttempts >= this.maxReconnectionAttempts) {
-            console.error('Max reconnection attempts reached');
-        }
-    }
-
-    /**
-     * Closes WebSocket connection
-     */
-    public disconnect(): void {
-        this.isManualClose = true;
-        
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
-        }
-        
-        this.subscribedTokens.clear();
-        this.reconnectionAttempts = 0;
-    }
-
-    /**
-     * Re-subscribes to all previously subscribed tokens
-     */
-    private resubscribeTokens(): void {
-        if (this.subscribedTokens.size > 0) {
-            const tokens = Array.from(this.subscribedTokens);
-            this.sendSubscriptionMessage('subscribe', tokens);
-        }
-    }
-
-    /**
-     * Subscribes to market data for given instrument tokens
-     */
-    public subscribe(tokens: number[]): void {
-        if (!Array.isArray(tokens) || tokens.length === 0) {
-            console.warn('Invalid tokens provided for subscription');
-            return;
-        }
-
-        tokens.forEach(token => this.subscribedTokens.add(token));
-        this.sendSubscriptionMessage('subscribe', tokens);
-    }
-
-    /**
-     * Unsubscribes from market data for given instrument tokens
-     */
-    public unsubscribe(tokens: number[]): void {
-        if (!Array.isArray(tokens) || tokens.length === 0) {
-            console.warn('Invalid tokens provided for unsubscription');
-            return;
-        }
-
-        tokens.forEach(token => this.subscribedTokens.delete(token));
-        this.sendSubscriptionMessage('unsubscribe', tokens);
-    }
-
-    /**
-     * Sends subscription/unsubscription message
-     */
-    private sendSubscriptionMessage(action: 'subscribe' | 'unsubscribe', tokens: number[]): void {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            const message = JSON.stringify({
-                correlationID: "sub_" + Date.now(),
-                action: action === 'subscribe' ? 1 : 0,
-                params: {
-                    mode: 3,
-                    tokenList: [{
-                        exchangeType: 1,
-                        tokens: tokens.map(token => token.toString())
-                    }]
-                }
-            });
-            this.logToFile(`Sending ${action} message: ${message}`);
-            this.ws.send(message);
-        } else {
-            this.logToFile(`Cannot ${action}: WebSocket is not connected`);
-        }
-    }
-
-    /**
-     * Parses binary market data messages
-     */
-    private parseBinaryMessage(data: ArrayBuffer): void {
-        try {
-            const view = new DataView(data);
-            let offset = 0;
-            
-            // TypeB format: parse each tick directly
-            while (offset < data.byteLength - 8) {
-                const tick = this.parseTypeBTickData(view, offset);
-                if (tick) {
-                    this.logTickData(tick);
-                    this.onBroadcastReceived(tick);
-                }
-                offset += 60; // Move to next tick (adjust based on actual packet size)
-            }
-        } catch (error) {
-            this.logToFile(`Error parsing binary message: ${error}`);
-        }
-    }
-
-    /**
-     * Parses TypeB tick data format
-     */
-    private parseTypeBTickData(view: DataView, offset: number): FeedData | null {
-        try {
-            if (offset + 20 > view.byteLength) return null;
-            
-            const mode = view.getUint8(offset);
-            const subscriptionMode = view.getUint8(offset + 1);
-            const exchangeType = view.getUint8(offset + 2);
-            const instrumentToken = view.getUint32(offset + 4, true);
-            const sequenceNo = view.getUint32(offset + 8, true);
-            const exTimestamp = view.getUint32(offset + 12, true);
-            const ltp = view.getUint32(offset + 16, true);
-            
-            const tick: FeedData = {
-                InstrumentToken: instrumentToken,
-                Mode: mode === 1 ? 'ltp' : mode === 2 ? 'quote' : 'full',
-                LastPrice: ltp / 100,
-                Tradable: true
+            const depthItem: DepthItem = {
+              buy_or_sell: buySellFlag,
+              quantity: quantity,
+              price: price,
+              orders: orders
             };
             
-            if (mode >= 2 && offset + 32 <= view.byteLength) {
-                tick.LastQuantity = view.getUint32(offset + 20, true);
-                tick.AveragePrice = view.getUint32(offset + 24, true) / 100;
-                tick.Volume = view.getUint32(offset + 28, true);
+            if (i < 5) {
+              depth.bid.push(depthItem);
+            } else {
+              depth.ask.push(depthItem);
             }
-            
-            if (mode === 3 && offset + 56 <= view.byteLength) {
-                tick.Open = view.getUint32(offset + 40, true) / 100;
-                tick.High = view.getUint32(offset + 44, true) / 100;
-                tick.Low = view.getUint32(offset + 48, true) / 100;
-                tick.Close = view.getUint32(offset + 52, true) / 100;
-            }
-            
-            return tick;
-        } catch (error) {
-            this.logToFile(`Error parsing TypeB tick data: ${error}`);
-            return null;
-        }
-    }
-
-    /**
-     * Reads LTP broadcast data (8 bytes)
-     */
-    private readLTPBroadcast(view: DataView, offset: number): FeedData {
-        const instrumentToken = view.getUint32(offset, false);
-        const divisor = Utils.getDecimalDivisor(instrumentToken);
-        const lastPrice = view.getUint32(offset + 4, false) / divisor;
-        
-        return {
-            InstrumentToken: instrumentToken,
-            Mode: 'ltp',
-            LastPrice: lastPrice,
-            Tradable: (instrumentToken & 0xff) !== 9
-        };
-    }
-
-    /**
-     * Reads quote index data (28 bytes)
-     */
-    private readQuoteIndex(view: DataView, offset: number): FeedData {
-        const instrumentToken = view.getUint32(offset, false);
-        const divisor = Utils.getDecimalDivisor(instrumentToken);
-        
-        return {
-            Mode: 'quote',
-            InstrumentToken: instrumentToken,
-            Tradable: (instrumentToken & 0xff) !== 9,
-            LastPrice: view.getUint32(offset + 4, false) / divisor,
-            High: view.getUint32(offset + 8, false) / divisor,
-            Low: view.getUint32(offset + 12, false) / divisor,
-            Open: view.getUint32(offset + 16, false) / divisor,
-            Close: view.getUint32(offset + 20, false) / divisor,
-            Change: view.getUint32(offset + 24, false) / divisor,
-        };
-    }
-
-    /**
-     * Reads full index data (32 bytes)
-     */
-    private readFullIndex(view: DataView, offset: number): FeedData {
-        const instrumentToken = view.getUint32(offset, false);
-        const divisor = Utils.getDecimalDivisor(instrumentToken);
-        const lastPrice = view.getUint32(offset + 4, false) / divisor;
-        const high = view.getUint32(offset + 8, false) / divisor;
-        const low = view.getUint32(offset + 12, false) / divisor;
-        const open = view.getUint32(offset + 16, false) / divisor;
-        const close = view.getUint32(offset + 20, false) / divisor;
-        const time = view.getUint32(offset + 28, false);
-
-        return {
-            Mode: 'full',
-            InstrumentToken: instrumentToken,
-            Tradable: (instrumentToken & 0xff) !== 9,
-            LastPrice: lastPrice,
-            High: high,
-            Low: low,
-            Open: open,
-            Close: close,
-            Change: lastPrice - close,
-            Timestamp: Utils.unixToDateTime(time)
-        };
-    }
-
-    /**
-     * Reads quote data (44 bytes)
-     */
-    private readQuote(view: DataView, offset: number): FeedData {
-        const instrumentToken = view.getUint32(offset, false);
-        const divisor = Utils.getDecimalDivisor(instrumentToken);
-        
-        return {
-            Mode: 'quote',
-            InstrumentToken: instrumentToken,
-            Tradable: (instrumentToken & 0xff) !== 9,
-            LastPrice: view.getUint32(offset + 4, false) / divisor,
-            LastQuantity: view.getUint32(offset + 8, false),
-            AveragePrice: view.getUint32(offset + 12, false) / divisor,
-            Volume: view.getUint32(offset + 16, false),
-            BuyQuantity: view.getUint32(offset + 20, false),
-            SellQuantity: view.getUint32(offset + 24, false),
-            Open: view.getUint32(offset + 28, false) / divisor,
-            High: view.getUint32(offset + 32, false) / divisor,
-            Low: view.getUint32(offset + 36, false) / divisor,
-            Close: view.getUint32(offset + 40, false) / divisor,
-        };
-    }
-
-    /**
-     * Reads full feed data (184 bytes)
-     */
-    private readFullFeed(view: DataView, offset: number): FeedData {
-        const instrumentToken = view.getUint32(offset, false);
-        const divisor = Utils.getDecimalDivisor(instrumentToken);
-
-        const tick: FeedData = {
-            Mode: 'full',
-            InstrumentToken: instrumentToken,
-            Tradable: (instrumentToken & 0xff) !== 9,
-            LastPrice: view.getUint32(offset + 4, false) / divisor,
-            LastQuantity: view.getUint32(offset + 8, false),
-            AveragePrice: view.getUint32(offset + 12, false) / divisor,
-            Volume: view.getUint32(offset + 16, false),
-            BuyQuantity: view.getUint32(offset + 20, false),
-            SellQuantity: view.getUint32(offset + 24, false),
-            Open: view.getUint32(offset + 28, false) / divisor,
-            High: view.getUint32(offset + 32, false) / divisor,
-            Low: view.getUint32(offset + 36, false) / divisor,
-            Close: view.getUint32(offset + 40, false) / divisor,
-            LastTradeTime: Utils.unixToDateTime(view.getUint32(offset + 44, false)),
-            OI: view.getUint32(offset + 48, false),
-            OIDayHigh: view.getUint32(offset + 52, false),
-            OIDayLow: view.getUint32(offset + 56, false),
-            Timestamp: Utils.unixToDateTime(view.getUint32(offset + 60, false)),
-        };
-
-        // Read bid data
-        tick.Bids = [];
-        let bidOffset = offset + 64;
-        for (let i = 0; i < 5; i++) {
-            tick.Bids.push({
-                Quantity: view.getUint32(bidOffset, false),
-                Price: view.getUint32(bidOffset + 4, false) / divisor,
-                Orders: view.getUint16(bidOffset + 8, false),
-            });
-            bidOffset += 12;
+          }
+          
+          tickData.depth = depth;
+          
+          // Read circuit limits and 52-week data
+          tickData.upper_circuit_lmt = this.readUInt64LE(buffer, 347);
+          tickData.lower_circuit_lmt = this.readUInt64LE(buffer, 355);
+          tickData['52_wk_high'] = this.readUInt64LE(buffer, 363);
+          tickData['52_wk_low'] = this.readUInt64LE(buffer, 371);
         }
 
-        // Read offer data
-        tick.Offers = [];
-        let offerOffset = bidOffset;
-        for (let i = 0; i < 5; i++) {
-            tick.Offers.push({
-                Quantity: view.getUint32(offerOffset, false),
-                Price: view.getUint32(offerOffset + 4, false) / divisor,
-                Orders: view.getUint16(offerOffset + 8, false),
-            });
-            offerOffset += 12;
-        }
+        data.push(tickData);
+      }
 
-        return tick;
+      return data;
+    } catch (error) {
+      if (this.debug) console.error('Error parsing binary data:', error);
+      throw error;
     }
+  }
 
-    /**
-     * Gets current connection status
-     */
-    public isConnected(): boolean {
-        return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
-    }
+  private readUInt64LE(buffer: Buffer, offset: number): number {
+    // Read 8 bytes as little-endian and convert to number
+    // Using system byte order as per Python implementation
+    const low = buffer.readUInt32LE(offset);
+    const high = buffer.readUInt32LE(offset + 4);
+    return high * 0x100000000 + low;
+  }
 
-    /**
-     * Gets subscribed tokens
-     */
-    public getSubscribedTokens(): number[] {
-        return Array.from(this.subscribedTokens);
+  close(code?: number, reason?: string): void {
+    this.reconnect = false;
+    this.stopPing();
+    if (this.ws) {
+      this.ws.close(code, reason);
     }
+  }
 
-    /**
-     * Set streaming mode for tokens
-     */
-    public setMode(mode: 'ltp' | 'quote' | 'full', tokens: number[]): void {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            const message = JSON.stringify({ a: 'mode', v: [mode, tokens] });
-            this.ws.send(message);
-        }
-    }
+  isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN;
+  }
 }

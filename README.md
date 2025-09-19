@@ -13,12 +13,15 @@ mStock TypeB is a comprehensive trading API that provides capabilities required 
 
 - [TradingAPI documentation](https://tradingapi.mstock.com/)
 - [Examples](./examples/)
+- [Testing Guide](./test/RUNTEST.md)
 
 ## Requirements
 
 - Node.js v18.0.0+
 
 ## Installation
+
+npm install
 
 Install via [npm](https://www.npmjs.com/package/@mstock-mirae-asset/nodetradingapi-typeb)
 
@@ -33,6 +36,7 @@ npm install @mstock-mirae-asset/nodetradingapi-typeb
 - **Order Management** - Place, modify, cancel orders with ease
 - **Portfolio Management** - View positions, holdings, and trade history
 - **Market Data** - Real-time quotes, historical data, and chart data
+- **WebSocket Support** - Real-time market data streaming with MTicker
 - **Basket Orders** - Create and manage basket orders
 - **Options Trading** - Complete options chain support
 - **Error Handling** - Comprehensive error handling and retry mechanisms
@@ -180,6 +184,39 @@ const calculation = await client.calculateBasket({
 });
 ```
 
+### WebSocket Market Data
+
+```typescript
+import { MTicker } from '@mstock-mirae-asset/nodetradingapi-typeb';
+
+// Initialize MTicker
+const ticker = new MTicker(apiKey, accessToken, 'wss://ws.mstock.trade', true);
+
+// Event handlers
+ticker.on('ticks', (ticks) => {
+    console.log('Market data:', ticks);
+});
+
+ticker.on('connect', () => {
+    ticker.sendLoginAfterConnect();
+    // Subscribe to instruments with different modes
+    ticker.subscribe('NSE', ['1594'], MTicker.MODE_LTP);    // LTP only
+    ticker.subscribe('NSE', ['2885'], MTicker.MODE_QUOTE);  // OHLC + Volume
+    ticker.subscribe('NSE', ['1333'], MTicker.MODE_SNAP);   // Full market depth
+});
+
+ticker.on('order_update', (data) => {
+    console.log('Order update:', data);
+});
+
+ticker.on('trade_update', (data) => {
+    console.log('Trade update:', data);
+});
+
+// Connect to WebSocket
+ticker.connect();
+```
+
 ##  API Reference
 
 ### Authentication
@@ -199,6 +236,8 @@ const calculation = await client.calculateBasket({
 | `modifyOrder()` | Modify existing orders |
 | `cancelOrder()` | Cancel orders |
 | `cancelAllOrders()` | Cancel all open orders |
+| `getOrderBook()` | Get order book |
+| `getOrderDetails()` | Get specific order details |
 
 ### Portfolio Operations
 
@@ -207,6 +246,9 @@ const calculation = await client.calculateBasket({
 | `getPositions()` | Get open positions |
 | `getHoldings()` | Get portfolio holdings |
 | `getFundSummary()` | Get fund summary |
+| `convertPosition()` | Convert position between product types |
+| `getTradeBook()` | Get trade book |
+| `getTradeHistory()` | Get trade history |
 
 ### Market Data
 
@@ -216,6 +258,7 @@ const calculation = await client.calculateBasket({
 | `getIntradayChartData()` | Get intraday chart data |
 | `getQuote()` | Get real-time quotes |
 | `getInstrumentMaster()` | Get instrument master data |
+| `loserGainer()` | Get top gainers and losers |
 
 ### Options Trading
 
@@ -224,12 +267,62 @@ const calculation = await client.calculateBasket({
 | `getOptionChainMaster()` | Get option chain master data |
 | `getOptionChain()` | Get detailed option chain data |
 
+### Basket Operations
 
-### Testing
+| Method | Description |
+|--------|-------------|
+| `createBasket()` | Create new basket |
+| `fetchBasket()` | Fetch existing baskets |
+| `renameBasket()` | Rename basket |
+| `deleteBasket()` | Delete basket |
+| `calculateBasket()` | Calculate basket margin and charges |
+
+### WebSocket (MTicker)
+
+| Method | Description |
+|--------|-------------|
+| `connect()` | Connect to WebSocket |
+| `subscribe()` | Subscribe to instruments |
+| `unsubscribe()` | Unsubscribe from instruments |
+| `sendLoginAfterConnect()` | Send login after connection |
+| `close()` | Close WebSocket connection |
+
+### Other Operations
+
+| Method | Description |
+|--------|-------------|
+| `orderMargin()` | Calculate order margin requirements |
+
+
+## Testing
+
+The SDK includes comprehensive testing utilities:
+
+### Interactive API Testing
 
 ```bash
-npm test
+# Run interactive test menu
+npx ts-node test/test-api.ts
 ```
+
+### WebSocket Testing
+
+```bash
+# Test real-time market data
+npx ts-node test/test-ticker.ts
+```
+
+### Available Test Categories
+
+- **Authentication**: Login, OTP verification, TOTP verification
+- **Order Management**: Place, modify, cancel orders
+- **Portfolio & Funds**: Positions, holdings, fund summary
+- **Market Data**: Historical data, quotes, instrument master
+- **WebSocket**: Real-time market data streaming
+- **Basket Operations**: Create, manage, calculate baskets
+- **Options Trading**: Option chain data
+
+See [test/RUNTEST.md](./test/RUNTEST.md) for detailed testing instructions.
 
 ### Building
 
