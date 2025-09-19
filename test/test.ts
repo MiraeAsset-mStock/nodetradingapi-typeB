@@ -71,7 +71,7 @@ async function displayMenu() {
 
 // Initialize the client
 async function initializeClient() {
-    const apiKey = '2axlHl4XWZoO2mSToElejcTOkc09QSxHP9YxrywofSo@'; // Replace with your actual API key
+    const apiKey = 'ENTER_YOUR_API_KEY'; // Replace with your actual API key
     client = new MConnect(DEFAULTS.API_BASE_URL, apiKey);
     responseLogger = new ResponseLogger('api-responses.log');
     console.log('Client initialized successfully!');
@@ -81,8 +81,8 @@ async function initializeClient() {
 async function testLogin() {
 //    const clientcode = await question('Enter client code: ');
 //    const password = await question('Enter password: ');
-    const clientcode ='8976881099' //'Enter_Client_Code_or_Mobile_Number_here';
-    const password = 'Sandy@1999' // 'Enter_you_password_here';
+    const clientcode ='XXXXXXX' //'Enter_Client_Code_or_Mobile_Number_here';
+    const password = 'XXXXXXX' // 'Enter_you_password_here';
     const totp = '';
     const state = '';
 
