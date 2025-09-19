@@ -4,7 +4,8 @@
  * Package name: mconnectb
  */
 
-import { MConnect } from '../lib/connect';
+//import { MConnect} from '@mstock-mirae-asset/nodetradingapi-typeb'
+import { MConnect } from  '../lib/connect';
 import { MConnectConfig } from '../types/config';
 import { 
     LoginReq, 
@@ -17,12 +18,17 @@ import {
     CreateBasket,
     RenameBasket,
     DeleteBasket,
-    CalcualteBasket
+    CalcualteBasket,
+    IntradyChartDataParams,
+    OrderMarginReq,
+    OrderDetailsReq,
+    TradeHistoryReq,
+    LoserGainer
 } from '../types';
 
 // Initialize the SDK with your configuration
 const config: MConnectConfig = {
-    apiKey: 'YOUR_API_KEY_HERE',
+    apiKey: 'ENTER_YOUR_API_KEY_HERE',
     baseUrl: 'https://api.mstock.trade',
     timeout: 30000,
 };
@@ -40,10 +46,10 @@ async function authenticate() {
         console.log('Starting authentication...');
         
         const loginParams: LoginReq = {
-            clientcode: 'YOUR_CLIENT_CODE',
-            password: 'YOUR_PASSWORD',
-            totp: 'YOUR_TOTP_CODE', // Optional
-            state: 'random_state_string' // Optional
+            clientcode: 'XXXXXXXXX', // Your client code
+            password: 'XXXXXXXXX', // Your password
+            totp: '', // Optional
+            state: '' // Optional
         };
 
         const response = await client.login(loginParams);
@@ -375,7 +381,304 @@ async function getQuoteData() {
     }
 }
 
-// Example 14: Basket Operations
+// Example 14: Cancel All Orders
+async function cancelAllOrders() {
+    try {
+        console.log(' Canceling all orders...');
+        
+        const response = await client.cancelAllOrders();
+        
+        if (response.status && response.data) {
+            console.log(' All orders canceled successfully!');
+            return response.data;
+        } else {
+            console.error(' Cancel all orders failed:', response.message);
+            return null;
+        }
+    } catch (error) {
+        console.error(' Cancel all orders error:', error);
+        return null;
+    }
+}
+
+// Example 15: Get Order Details
+async function getOrderDetails(orderNo: string, segment: string) {
+    try {
+        console.log(' Fetching order details...');
+        
+        const params: OrderDetailsReq = {
+            order_no: orderNo
+            //segment: segment
+        };
+        
+        const response = await client.getOrderDetails(params);
+        
+        if (response && response.length > 0) {
+            console.log(' Order details retrieved successfully!');
+            console.log('Order details:', response[0]);
+            return response;
+        } else {
+            console.error(' Order details retrieval failed: No data returned');
+            return null;
+        }
+    } catch (error) {
+        console.error(' Order details retrieval error:', error);
+        return null;
+    }
+}
+
+// Example 16: Convert Position
+async function convertPosition() {
+    try {
+        console.log(' Converting position...');
+        
+        const params: ConvertPositionParams = {
+            exchange: 'NSE',
+            symboltoken: '2885',
+            oldproducttype: 'INTRADAY',
+            newproducttype: 'DELIVERY',
+            tradingsymbol: 'RELIANCE-EQ',
+            symbolname: 'RELIANCE',
+            transactiontype: 'BUY',
+            quantity: 10,
+            type: 'DAY'
+        };
+
+        const response = await client.convertPosition(params);
+        
+        if (response.status && response.data) {
+            console.log(' Position converted successfully!');
+            return response.data;
+        } else {
+            console.error(' Position conversion failed:', response.message);
+            return null;
+        }
+    } catch (error) {
+        console.error(' Position conversion error:', error);
+        return null;
+    }
+}
+
+// Example 17: Get Intraday Chart Data
+async function getIntradayChartData() {
+    try {
+        console.log(' Fetching intraday chart data...');
+        
+        const params: IntradyChartDataParams = {
+            exchange: 'NSE',
+            symbolname: 'RELIANCE-EQ',
+            interval: 'ONE_MINUTE'
+        };
+
+        const response = await client.getIntradayChartData(params);
+        
+        if (response.status && response.data) {
+            console.log(' Intraday chart data retrieved successfully!');
+            console.log('Total records:', response.data.length);
+            return response.data;
+        } else {
+            console.error(' Intraday chart data retrieval failed:', response.message);
+            return null;
+        }
+    } catch (error) {
+        console.error(' Intraday chart data retrieval error:', error);
+        return null;
+    }
+}
+
+// Example 18: Get Instrument Master
+async function getInstrumentMaster() {
+    try {
+        console.log(' Fetching instrument master...');
+        
+        const response = await client.getInstrumentMaster();
+        
+        if (response) {
+            console.log(' Instrument master retrieved successfully!');
+            console.log('CSV data length:', response.length);
+            return response;
+        } else {
+            console.error(' Instrument master retrieval failed: No data returned');
+            return null;
+        }
+    } catch (error) {
+        console.error(' Instrument master retrieval error:', error);
+        return null;
+    }
+}
+
+// Example 19: Get Trade Book
+async function getTradeBook() {
+    try {
+        console.log(' Fetching trade book...');
+        
+        const response = await client.getTradeBook();
+        
+        if (response.status && response.data) {
+            console.log(' Trade book retrieved successfully!');
+            console.log('Total trades:', response.data.length);
+            return response.data;
+        } else {
+            console.error(' Trade book retrieval failed:', response.message);
+            return null;
+        }
+    } catch (error) {
+        console.error(' Trade book retrieval error:', error);
+        return null;
+    }
+}
+
+// Example 20: Get Trade History
+async function getTradeHistory() {
+    try {
+        console.log(' Fetching trade history...');
+        
+        const params: TradeHistoryReq = {
+            fromdate: '2024-01-01',
+            todate: '2024-12-31'
+        };
+        
+        const response = await client.getTradeHistory(params);
+        
+        if (response && response.length > 0) {
+            console.log(' Trade history retrieved successfully!');
+            console.log('Total trades:', response.length);
+            return response;
+        } else {
+            console.error(' Trade history retrieval failed: No data returned');
+            return null;
+        }
+    } catch (error) {
+        console.error(' Trade history retrieval error:', error);
+        return null;
+    }
+}
+
+// Example 21: Order Margin
+async function orderMargin() {
+    try {
+        console.log(' Calculating order margin...');
+        
+        const params: OrderMarginReq = {
+            orders: [{
+                product_type: 'INTRADAY',
+                transaction_type: 'BUY',
+                quantity: 10,
+                price: 2500,
+                exchange: 'NSE',
+                symbol_name: 'RELIANCE-EQ',
+                token: 2885,
+                trigger_price: 0
+            }]
+        };
+
+        const response = await client.orderMargin(params);
+        
+        if (response && response.length > 0) {
+            console.log(' Order margin calculated successfully!');
+            return response;
+        } else {
+            console.error(' Order margin calculation failed: No data returned');
+            return null;
+        }
+    } catch (error) {
+        console.error(' Order margin calculation error:', error);
+        return null;
+    }
+}
+
+// Example 22: Loser Gainer
+async function loserGainer() {
+    try {
+        console.log(' Fetching loser gainer data...');
+        
+        const params: LoserGainer = {
+            Exchange: 1,
+            SecurityIdCode: 1,
+            segment: 1,
+            TypeFlag: 'G'
+        };
+        
+        const response = await client.loserGainer(params);
+        
+        if (response && response.length > 0) {
+            console.log(' Loser gainer data retrieved successfully!');
+            return response;
+        } else {
+            console.error(' Loser gainer data retrieval failed: No data returned');
+            return null;
+        }
+    } catch (error) {
+        console.error(' Loser gainer data retrieval error:', error);
+        return null;
+    }
+}
+
+// Example 23: Delete Basket
+async function deleteBasket(basketId: string) {
+    try {
+        console.log(' Deleting basket...');
+        
+        const params: DeleteBasket = {
+            BasketId: basketId
+        };
+        
+        const response = await client.deleteBasket(params);
+        
+        if (response && response.length >= 0) {
+            console.log(' Basket deleted successfully!');
+            return response;
+        } else {
+            console.error(' Basket deletion failed: No response');
+            return null;
+        }
+    } catch (error) {
+        console.error(' Basket deletion error:', error);
+        return null;
+    }
+}
+
+// Example 24: Calculate Basket
+async function calculateBasket() {
+    try {
+        console.log(' Calculating basket...');
+        
+        const params: CalcualteBasket = {
+            basket_name: 'MyStrategy',
+            basket_id: '123',
+            operation: 'CALCULATE',
+            include_exist_pos: 'Y',
+            ord_product: 'INTRADAY',
+            disc_qty: '0',
+            segment: 'EQ',
+            trigger_price: '0',
+            scriptcode: '2885',
+            ord_type: 'MARKET',
+            order_validity: 'DAY',
+            order_qty: '10',
+            script_stat: 'ACTIVE',
+            buy_sell_indi: 'BUY',
+            basket_priority: '1',
+            order_price: '0',
+            exch_id: 'NSE'
+        };
+        
+        const response = await client.calculateBasket(params);
+        
+        if (response && response.length >= 0) {
+            console.log(' Basket calculated successfully!');
+            return response;
+        } else {
+            console.error(' Basket calculation failed: No response');
+            return null;
+        }
+    } catch (error) {
+        console.error(' Basket calculation error:', error);
+        return null;
+    }
+}
+
+// Example 25: Basket Operations
 async function basketOperations() {
     try {
         console.log(' Performing basket operations...');
@@ -402,6 +705,10 @@ async function basketOperations() {
             
             const renameResponse = await client.renameBasket(renameParams);
             console.log(' Basket renamed:', renameResponse);
+            
+            // Calculate basket
+            const calculateResponse = await calculateBasket();
+            console.log(' Basket calculated:', calculateResponse);
         }
         
         return baskets;
@@ -411,7 +718,7 @@ async function basketOperations() {
     }
 }
 
-// Example 15: Complete Workflow
+// Example 26: Complete Workflow
 async function completeWorkflow() {
     try {
         console.log(' Starting complete workflow...');
@@ -447,7 +754,7 @@ async function completeWorkflow() {
     }
 }
 
-// Example 16: Error Handling
+// Example 27: Error Handling
 async function errorHandlingExample() {
     try {
         console.log(' Testing error handling...');
@@ -473,12 +780,23 @@ export {
     placeLimitOrder,
     modifyOrder,
     cancelOrder,
+    cancelAllOrders,
+    getOrderDetails,
     getOrderBook,
     getPositions,
     getHoldings,
+    convertPosition,
     getFundSummary,
     getHistoricalData,
+    getIntradayChartData,
+    getInstrumentMaster,
+    getTradeBook,
+    getTradeHistory,
     getQuoteData,
+    orderMargin,
+    loserGainer,
+    deleteBasket,
+    calculateBasket,
     basketOperations,
     completeWorkflow,
     errorHandlingExample,

@@ -71,7 +71,7 @@ async function displayMenu() {
 
 // Initialize the client
 async function initializeClient() {
-    const apiKey = 'ENTER YOUR API KEY HERE'; // Replace with your actual API key
+    const apiKey = '2axlHl4XWZoO2mSToElejcTOkc09QSxHP9YxrywofSo@'; // Replace with your actual API key
     client = new MConnect(DEFAULTS.API_BASE_URL, apiKey);
     responseLogger = new ResponseLogger('api-responses.log');
     console.log('Client initialized successfully!');
@@ -81,9 +81,9 @@ async function initializeClient() {
 async function testLogin() {
 //    const clientcode = await question('Enter client code: ');
 //    const password = await question('Enter password: ');
-    const clientcode = 'Enter Client Code/ Mobile Number here';
-    const password = 'Enter you password here';
-    const totp = '';//await question('Enter TOTP: ');
+    const clientcode ='8976881099' //'Enter_Client_Code_or_Mobile_Number_here';
+    const password = 'Sandy@1999' // 'Enter_you_password_here';
+    const totp = '';
     const state = '';
 
     try {
@@ -180,21 +180,16 @@ async function testPlaceOrder() {
     }
 
     try {
-        // const variety = await question('Enter variety (NORMAL/STOPLOSS/ROBO/AMO): ') as 'NORMAL' | 'STOPLOSS' | 'ROBO' | 'AMO';
-        // const exchange = await question('Enter exchange (NSE/BSE/NFO/BFO/CDS/MCX/NCDEX): ') as 'NSE' | 'BSE' | 'NFO' | 'BFO' | 'CDS' | 'MCX' | 'NCDEX';
-        // const transactiontype = await question('Enter transaction type (BUY/SELL): ') as 'BUY' | 'SELL';
-        // const ordertype = await question('Enter order type (MARKET/LIMIT/STOPLOSS_LIMIT/STOPLOSS_MARKET): ') as 'MARKET' | 'LIMIT' | 'STOPLOSS_LIMIT' | 'STOPLOSS_MARKET';
-        // const producttype = await question('Enter product type (DELIVERY/MARGIN/INTRADAY/BO/CARRYFORWARD): ') as 'DELIVERY' | 'MARGIN' | 'INTRADAY' | 'BO' | 'CARRYFORWARD';
-        
+
         const orderParams = {
-            variety: "NORMAL",
+            variety: "NORMAL", // Enter variety (NORMAL/STOPLOSS/ROBO/AMO)
             tradingsymbol: "IDEA-EQ",
             symboltoken: "14366",
-            exchange: "NSE",
-            transactiontype: "BUY",
-            ordertype: "MARKET",
+            exchange: "NSE", // Enter exchange (NSE/BSE/NFO/BFO/CDS/MCX/NCDEX)
+            transactiontype: "BUY", // Enter transaction type (BUY/SELL)
+            ordertype: "MARKET", // Enter order type (MARKET/LIMIT/STOPLOSS_LIMIT/STOPLOSS_MARKET)
             quantity: "1",
-            producttype: "DELIVERY",
+            producttype: "DELIVERY", // Enter product type (DELIVERY/MARGIN/INTRADAY/BO/CARRYFORWARD)
             price: "0",
             triggerprice: "0",
             squareoff: "0",
@@ -223,22 +218,17 @@ async function testModifyOrder() {
     }
 
     try {
-        // const variety = await question('Enter variety (NORMAL/STOPLOSS/ROBO/AMO): ') as 'NORMAL' | 'STOPLOSS' | 'ROBO' | 'AMO';
-        // const exchange = await question('Enter exchange (NSE/BSE/NFO/BFO/CDS/MCX/NCDEX): ') as 'NSE' | 'BSE' | 'NFO' | 'BFO' | 'CDS' | 'MCX' | 'NCDEX';
-        // const ordertype = await question('Enter order type (MARKET/LIMIT/STOPLOSS_LIMIT/STOPLOSS_MARKET): ') as 'MARKET' | 'LIMIT' | 'STOPLOSS_LIMIT' | 'STOPLOSS_MARKET';
-        // const producttype = await question('Enter product type (DELIVERY/MARGIN/INTRADAY/BO/CARRYFORWARD): ') as 'DELIVERY' | 'MARGIN' | 'INTRADAY' | 'BO' | 'CARRYFORWARD';
-        
         const orderParams = {
             
-            variety: "NORMAL",
+            variety: "NORMAL",  //Enter variety (NORMAL/STOPLOSS/ROBO/AMO)
             tradingsymbol: "IDEA-EQ",
             symboltoken: "14366",
-            exchange: "NSE",
+            exchange: "NSE",// Enter exchange (NSE/BSE/NFO/BFO)
             transactiontype: "BUY",
-            orderid: "22212507151278",
-            ordertype: "LIMIT",
+            orderid: "23712509161817",
+            ordertype: "LIMIT", // Enter order type (MARKET/LIMIT/STOPLOSS_LIMIT/STOPLOSS_MARKET)
             quantity: "1",
-            producttype: "DELIVERY",
+            producttype: "DELIVERY", // Enter product type (DELIVERY/MARGIN/INTRADAY/BO/CARRYFORWARD)
             duration: "DAY",
             price: "6.10",
             triggerprice: "0",
@@ -301,8 +291,8 @@ async function testGetOrderDetails() {
 
     try {
         const params = {
-            order_no: await question('Enter order number: '),
-            segment: await question('Enter segment: ')
+            order_no: await question('Enter order number: ')
+            //segment: await question('Enter segment: ')
         };
 
         const response = await client.getOrderDetails(params);
@@ -386,11 +376,6 @@ async function testConvertPosition() {
     }
 
     try {
-        // const exchange = 'NSE' as 'NSE'; //('Enter exchange (NSE/BSE/NFO/BFO/CDS/MCX/NCDEX): ') as 'NSE' | 'BSE' | 'NFO' | 'BFO' | 'CDS' | 'MCX' | 'NCDEX';
-        // const oldproducttype = 'INTRADAY' as 'DELIVERY'//('Enter old product type (DELIVERY/MARGIN/INTRADAY/CARRYFORWARD): ')
-        // const newproducttype = 'DELIVERY' as 'DELIVERY'//('Enter new product type (DELIVERY/MARGIN/INTRADAY/CARRYFORWARD): ')
-        // const transactiontype = 'BUY' as 'BUY' | 'SELL' //('Enter transaction type (BUY/SELL): ')
-        
         const params = {
             exchange: 'NSE',//'NSE' | 'BSE' | 'NFO' | 'BFO' | 'CDS' | 'MCX' | 'NCDEX',
             symboltoken: '22',
@@ -419,14 +404,11 @@ async function testGetHistoricalData() {
         return;
     }
 
-    try {
-        // const exchange = 'NSE' as 'NSE'; // (NSE/BSE/NFO/MCX/NCDEX): ') as 'NSE' | 'BSE' | 'NFO' | 'MCX' | 'NCDEX';
-        // const interval = "TEN_MINUTE" as "TEN_MINUTE" // (ONE_MINUTE/THREE_MINUTE/FIVE_MINUTE/TEN_MINUTE/FIFTEEN_MINUTE/THIRTY_MINUTE/ONE_HOUR/ONE_DAY): ') as 'ONE_MINUTE' | 'THREE_MINUTE' | 'FIVE_MINUTE' | 'TEN_MINUTE' | 'FIFTEEN_MINUTE' | 'THIRTY_MINUTE' | 'ONE_HOUR' | 'ONE_DAY';
-        
+    try {  
         const params = {
-            exchange:'NSE',
+            exchange:'NSE',      // ('NSE' / 'BSE' / 'NFO' / 'BFO')
             symboltoken: '22',
-            interval:'TEN_MINUTE',
+            interval:'TEN_MINUTE',  // (ONE_MINUTE/THREE_MINUTE/FIVE_MINUTE/TEN_MINUTE/FIFTEEN_MINUTE/THIRTY_MINUTE/ONE_HOUR/ONE_DAY)
             fromdate: '2025-08-11',//('Enter from date (YYYY-MM-DD HH:mm:ss): '),
             todate: '2025-08-14'//'Enter to date (YYYY-MM-DD HH:mm:ss): ')
         };
@@ -467,7 +449,6 @@ async function testGetIntradayChartData() {
     }
 
     try {
-        //const interval = "TEN_MINUTE" as "TEN_MINUTE";
         const params = {
             exchange: '1',
             symbolname: 'ACC',  // Using full symbol name
@@ -725,34 +706,6 @@ async function testCalculateBasket() {
             exch_id: 'NSE',
             orders: []  // Empty array for orders
             
-
-            //scriptcode: await question('Enter script code: '),
-            // ord_type: await question('Enter order type (MARKET/LIMIT): '),
-            // basket_name: await question('Enter basket name: '),
-            // exchange: await question('Enter exchange: '),
-            // tradingsymbol: await question('Enter trading symbol: '),
-            // symboltoken: await question('Enter symbol token: '),
-            // transactiontype: await question('Enter transaction type (BUY/SELL): '),
-            // price: await question('Enter price: '),
-            // producttype: await question('Enter product type: '),
-            // markettype: await question('Enter market type: '),
-            // lotsize: await question('Enter lot size: '),
-            // ordertype: await question('Enter order type: '),
-            // ordertag: await question('Enter order tag: '),
-            // operation: await question('Enter operation: '),
-            // order_validity: await question('Enter order validity (DAY/IOC): '),
-            // order_qty: await question('Enter order quantity: '),
-            // script_stat: await question('Enter script status: '),
-            // sripstat: await question('Enter SRIP status: '),
-            // symbolName: await question('Enter symbol name: '),
-            // token: await question('Enter token: '),
-            // trading_symbol: await question('Enter trading symbol again: '),
-            // buy_sell_indi: await question('Enter buy/sell indicator: '),
-            // basket_priority: await question('Enter basket priority: '),
-            // order_price: await question('Enter order price: '),
-            // basket_id: await question('Enter basket ID: '),
-            // exch_id: await question('Enter exchange ID: '),
-            // orders: []  // Empty array for orders
         };
 
         const response = await client.calculateBasket(params);
@@ -811,23 +764,11 @@ async function testOrderMargin() {
 
     try {
         const order = {
-            // tradingsymbol: await question('Enter trading symbol: '),
-            // exchange: await question('Enter exchange (NSE/BSE/NFO/BFO/CDS/MCX/NCDEX): ') as 'NSE' | 'BSE' | 'NFO' | 'BFO' | 'CDS' | 'MCX' | 'NCDEX',
-            // quantity: parseInt(await question('Enter quantity: ')),
-            // price: parseFloat(await question('Enter price: ')),
-            // product_type: await question('Enter product type (DELIVERY/MARGIN/INTRADAY/BO/CARRYFORWARD): ') as 'DELIVERY' | 'MARGIN' | 'INTRADAY' | 'BO' | 'CARRYFORWARD',
-            // transaction_type: await question('Enter transaction type (BUY/SELL): ') as 'BUY' | 'SELL',
-            // symbol_name: await question('Enter symbol name: '),
-            // token: parseInt(await question('Enter token (as number): ')),
-            // trigger_price: parseFloat(await question('Enter trigger price: '))
-
-
-            //tradingsymbol: await question('Enter trading symbol: '),
-            exchange: 'NSE',
+            exchange: 'NSE', // exchange: await question('Enter exchange (NSE/BSE/NFO/BFO)
             quantity: 1,
             price: 0,
-            product_type: 'DELIVERY',
-            transaction_type: 'BUY',
+            product_type: 'DELIVERY', // Enter product type (DELIVERY/MARGIN/INTRADAY/BO/CARRYFORWARD)
+            transaction_type: 'BUY', // Enter transaction type (BUY/SELL)
             symbol_name: 'ACC',
             token: 22,
             trigger_price: 0
@@ -854,10 +795,6 @@ async function testLoserGainer() {
 
     try {
         const params = {
-            // Exchange: parseInt(await question('Enter exchange (as number): ')),
-            // SecurityIdCode: parseInt(await question('Enter security ID code (as number): ')),
-            // segment: parseInt(await question('Enter segment (as number): ')),
-            // TypeFlag: await question('Enter type flag: ')
             Exchange: 1,
             SecurityIdCode: 13,
             segment: 1,
@@ -877,9 +814,54 @@ async function testLoserGainer() {
 async function main() {
     console.log('Welcome to TypeB Trading API Tester');
     await initializeClient();
+    
+    // Show menu only once at startup
+    console.log('\n=== TypeB Trading API Test Menu ===');
+    console.log('\nAuthentication:');
+    console.log('1. Login');
+    console.log('2. Verify OTP');
+    console.log('3. Verify TOTP');
+    console.log('4. Logout');
+
+    console.log('\nOrder Management:');
+    console.log('5. Place Order');
+    console.log('6. Modify Order');
+    console.log('7. Cancel Order');
+    console.log('8. Cancel All Orders');
+    console.log('9. Get Order Details');
+    console.log('10. Get Order Book');
+
+    console.log('\nPortfolio & Funds:');
+    console.log('11. Get Positions');
+    console.log('12. Get Holdings');
+    console.log('13. Get Fund Summary');
+    console.log('14. Convert Position');
+
+    console.log('\nMarket Data:');
+    console.log('15. Get Historical Data');
+    console.log('16. Get Intraday Chart Data');
+    console.log('17. Get Quote');
+    console.log('18. Get Instrument Master');
+    console.log('19. Get Option Chain Master');
+    console.log('20. Get Option Chain');
+
+    console.log('\nBasket Operations:');
+    console.log('21. Create Basket');
+    console.log('22. Fetch Basket');
+    console.log('23. Rename Basket');
+    console.log('24. Delete Basket');
+    console.log('25. Calculate Basket');
+
+    console.log('\nOther Operations:');
+    console.log('26. Get Trade Book');
+    console.log('27. Get Trade History');
+    console.log('28. Order Margin');
+    console.log('29. Loser Gainer');
+
+    console.log('\n0. Exit');
 
     while (true) {
-        const choice = await displayMenu();
+        const choice = await question('\nEnter your choice (0-29): ');
 
         switch (choice) {
             case '0':
