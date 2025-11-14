@@ -615,7 +615,7 @@ export interface LoserGainer {
  */
 export interface IntradyChartDataParams {
     exchange: string;
-    symbolname: string;
+    symboltoken: string;
     interval: string;
 }
 
