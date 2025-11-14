@@ -466,7 +466,7 @@ async function getIntradayChartData() {
         
         const params: IntradyChartDataParams = {
             exchange: 'NSE',
-            symbolname: 'RELIANCE-EQ',
+            symboltoken: '22',
             interval: 'ONE_MINUTE'
         };
 
