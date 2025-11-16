@@ -451,7 +451,7 @@ async function testGetIntradayChartData() {
     try {
         const params = {
             exchange: '1',
-            symbolname: 'ACC',  // Using full symbol name
+            symboltoken: '22',  // Using full symbol name
             interval:'TEN_MINUTE' // Using TEN_MINUTE interval
         };
 
