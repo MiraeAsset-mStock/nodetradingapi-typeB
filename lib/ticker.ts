@@ -260,44 +260,66 @@ export class MTicker extends EventEmitter {
     return origin;
   }
 
-  private convertPrices(tickData: TickData[]): TickData[] {
+  private convertPrices(tickData: TickData[]): any[] {
     return tickData.map(tick => {
-      const converted = { ...tick };
+      // Convert prices
+      const ltp = tick.ltp / 100;
+      const atp = tick.avg_traded_price ? tick.avg_traded_price / 100 : undefined;
+      const open = tick.ohlc?.open ? tick.ohlc.open / 100 : undefined;
+      const high = tick.ohlc?.high ? tick.ohlc.high / 100 : undefined;
+      const low = tick.ohlc?.low ? tick.ohlc.low / 100 : undefined;
+      const close = tick.ohlc?.close ? tick.ohlc.close / 100 : undefined;
       
-      // Convert price fields
-      ['ltp', 'avg_traded_price'].forEach(field => {
-        if (field in converted) {
-          (converted as any)[field] = (converted as any)[field] / 100;
-        }
-      });
-      
-      // Convert OHLC
-      if (converted.ohlc) {
-        ['open', 'high', 'low', 'close'].forEach(key => {
-          if (key in converted.ohlc!) {
-            (converted.ohlc as any)[key] = (converted.ohlc as any)[key] / 100;
-          }
+      // Convert depth to flat array format (bid first, then ask)
+      const depthArray: any[] = [];
+      if (tick.depth) {
+        tick.depth.bid.forEach(item => {
+          depthArray.push({
+            BuySellFlag: item.buy_or_sell,
+            Quantity: item.quantity,
+            Price: item.price > 0 ? item.price / 100 : item.price,
+            NumberOfOrders: item.orders
+          });
+        });
+        tick.depth.ask.forEach(item => {
+          depthArray.push({
+            BuySellFlag: item.buy_or_sell,
+            Quantity: item.quantity,
+            Price: item.price > 0 ? item.price / 100 : item.price,
+            NumberOfOrders: item.orders
+          });
         });
       }
       
-      // Convert market depth prices
-      if (converted.depth) {
-        converted.depth.bid.forEach(item => {
-          if (item.price > 0) item.price = item.price / 100;
-        });
-        converted.depth.ask.forEach(item => {
-          if (item.price > 0) item.price = item.price / 100;
-        });
-      }
+      // Build output in exact sequence as expected
+      const output: any = {};
       
-      // Convert circuit limits and 52-week data
-      ['upper_circuit_lmt', 'lower_circuit_lmt', '52_wk_high', '52_wk_low'].forEach(field => {
-        if (field in converted && (converted as any)[field] > 0) {
-          (converted as any)[field] = (converted as any)[field] / 100;
-        }
-      });
+      output.SubscriptionMode = tick.subscription_mode;
+      output.ExchangeType = tick.exchange_type;
+      output.Token = parseInt(tick.instrument_token);
+      output.SeqNumber = tick.sequence_no;
+      output.ExchangeTimestamp = tick.sequence_no;
+      output.LTP = ltp;
       
-      return converted;
+      if (tick.last_traded_qty !== undefined) output.LTQ = tick.last_traded_qty;
+      if (atp !== undefined) output.ATP = atp;
+      if (tick.vol_traded_today !== undefined) output.VTT = tick.vol_traded_today;
+      if (tick.tot_buy_qty !== undefined) output.TotalBuyQty = tick.tot_buy_qty;
+      if (tick.tot_sell_qty !== undefined) output.TotalSellQty = tick.tot_sell_qty;
+      if (open !== undefined) output.Open = open;
+      if (high !== undefined) output.High = high;
+      if (low !== undefined) output.Low = low;
+      if (close !== undefined) output.Close = close;
+      if (tick.last_traded_timestamp) output.LTT = Math.floor(new Date(tick.last_traded_timestamp).getTime() / 1000);
+      if (tick.open_interest !== undefined) output.OI = tick.open_interest;
+      if (tick.open_interest_percent !== undefined) output.OIChange = tick.open_interest_percent;
+      if (depthArray.length > 0) output.Depth = depthArray;
+      if (tick.upper_circuit_lmt !== undefined) output.UpperCircuitLimit = tick.upper_circuit_lmt > 0 ? tick.upper_circuit_lmt / 100 : tick.upper_circuit_lmt;
+      if (tick.lower_circuit_lmt !== undefined) output.LowerCircuitLimit = tick.lower_circuit_lmt > 0 ? tick.lower_circuit_lmt / 100 : tick.lower_circuit_lmt;
+      if (tick['52_wk_high'] !== undefined) output.FiftyTwoWeekHigh = tick['52_wk_high'] > 0 ? tick['52_wk_high'] / 100 : tick['52_wk_high'];
+      if (tick['52_wk_low'] !== undefined) output.FiftyTwoWeekLow = tick['52_wk_low'] > 0 ? tick['52_wk_low'] / 100 : tick['52_wk_low'];
+      
+      return output;
     });
   }
 
